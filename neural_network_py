@@ -1,0 +1,44 @@
+%tensorflow_version 2.x 
+
+from __future__ import absolute_import, division, print_function, unicode_literals
+import tensorflow as tf
+import pandas as pd
+
+
+CSV_COLUMN_NAMES = ['GroupNumber', 'GroupUnit', 'GroupSkills', 'GroupPreferences', 'ProjectNumber', 'ProjectUnits', 'ProjectSkills', 'ProjectPreferences','Allocated']
+ALLOCATED = ['true', 'false']
+
+train_path = tf.keras.utils.get_file(
+    "trainDataInt.csv", "https://raw.githubusercontent.com/nickjackson862/machine-learning/main/trainDataInt.csv")
+test_path = tf.keras.utils.get_file(
+    "testDataInt.csv", "https://raw.githubusercontent.com/nickjackson862/machine-learning/main/testDataInt.csv")
+
+train = pd.read_csv(train_path, names=CSV_COLUMN_NAMES, header=0)
+test = pd.read_csv(test_path, names=CSV_COLUMN_NAMES, header=0)
+
+train_y = train.pop('Allocated')
+test_y = test.pop('Allocated')
+train.head()
+
+def input_fn(features, labels, training=True, batch_size=5000):   
+    dataset = tf.data.Dataset.from_tensor_slices((dict(features), labels))    
+    if training:
+        dataset = dataset.shuffle(1000).repeat()    
+    return dataset.batch(batch_size)
+my_feature_columns = []
+for key in train.keys():
+    my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+
+classifier = tf.estimator.DNNClassifier(
+    feature_columns=my_feature_columns,
+    hidden_units=[50, 20],
+    n_classes=2)
+
+classifier.train(
+    input_fn=lambda: input_fn(train, train_y, training=True),
+    steps=4000)
+
+eval_result = classifier.evaluate(
+    input_fn=lambda: input_fn(test, test_y, training=False))
+
+print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result))
